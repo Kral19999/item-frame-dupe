@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "itemframeduper",
+  "version": "${version}",
+  "name": "Item Frame Duper",
+  "description": "Duper",
+  "authors": [
+    "Kral1999"
+  ],
+  "icon": "assets/template/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.kral1999.dupe.ModMain"
+    ]
+  },
+  "mixins": [
+    "dupe.mixins.json"
+  ],
+  "depends": {
+    "java": ">=21",
+    "minecraft": ">=1.20"
+  }
+}
