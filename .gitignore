@@ -1,0 +1,27 @@
+
+# Grade
+.gradle/
+build/
+out/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
+
+# Fabric
+run/
+run*/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
