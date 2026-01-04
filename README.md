@@ -3,16 +3,16 @@
   <h1 style="font-size: 30px;">⚡ Item Frame Duper ⚡</h1>
   <p><i>The ultimate utility for anarchy server economy domination.</i></p>
 
-  <img src="https://img.shields.io/github/license/Kral1999/item-frame-duper?style=flat-square&color=blueviolet" alt="License">
-  <img src="https://img.shields.io/github/v/release/Kral1999/item-frame-duper?style=flat-square&color=blueviolet" alt="Release">
-  <img src="https://img.shields.io/github/stars/Kral1999/item-frame-duper?style=flat-square&color=ff69b4" alt="Stars">
+  <img src="https://img.shields.io/github/license/Kral19999/item-frame-dupe?style=flat-square&color=blueviolet" alt="License">
+  <img src="https://img.shields.io/github/v/release/Kral19999/item-frame-dupe?style=flat-square&color=blueviolet" alt="Release">
+  <img src="https://img.shields.io/github/stars/Kral19999/item-frame-dupe?style=flat-square&color=ff69b4" alt="Stars">
   
   <br /><br />
   
   <p>
     Built for <b>Fabric</b>. Designed for <b>Power</b>.
     <br/>
-    <a href="https://github.com/Kral1999"><strong>Explore My Other Projects »</strong></a>
+    <a href="https://github.com/Kral19999"><strong>Explore My Other Projects »</strong></a>
   </p>
 </div>
 
@@ -51,5 +51,5 @@
 > This mod is intended strictly for **ANARCHY** environments. Using this on regulated servers (SMP, Factions, etc.) is at your own risk and may result in a ban. We advocate for safe and responsible usage.
 
 <div align="center">
-  <sub>Made with ❤️ by <a href="https://github.com/Kral1999">Kral1999</a></sub>
+  <sub>Made with ❤️ by <a href="https://github.com/Kral19999">Kral1999</a></sub>
 </div>
