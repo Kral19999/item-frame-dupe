@@ -37,6 +37,7 @@ public class Config {
         public int maxPlacements = 1;
         public int maxSwaps = 3;
         public int maxInventoryMoves = 1;
+        public String ignoreVersion = "";
 
         public List<String> dupeItems = new ArrayList<>(Arrays.asList(
                 "minecraft:shulker_box", "minecraft:white_shulker_box", "minecraft:orange_shulker_box",

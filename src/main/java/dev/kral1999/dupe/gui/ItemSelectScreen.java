@@ -26,7 +26,7 @@ public class ItemSelectScreen extends Screen {
     private int scrollOffset = 0;
 
     public ItemSelectScreen(Screen parent) {
-        super(Text.of("Select Items"));
+        super(Text.translatable("dupe.screen.select.title"));
         this.parent = parent;
     }
 
@@ -34,18 +34,19 @@ public class ItemSelectScreen extends Screen {
     protected void init() {
         if (allItems.isEmpty()) {
             Registries.ITEM.stream()
+                    .filter(item -> item != net.minecraft.item.Items.AIR)
                     .sorted(Comparator.comparing(item -> item.getName().getString()))
                     .forEach(allItems::add);
         }
 
         int searchWidth = 200;
         this.searchBox = new TextFieldWidget(this.textRenderer, this.width / 2 - searchWidth / 2, 20, searchWidth, 20,
-                Text.of("Search"));
+                Text.translatable("dupe.screen.select.search"));
         this.searchBox.setChangedListener(this::onSearchChanged);
         this.addDrawableChild(searchBox);
         this.setFocused(searchBox);
 
-        this.addDrawableChild(ButtonWidget.builder(Text.of("Done"), button -> this.close())
+        this.addDrawableChild(ButtonWidget.builder(Text.translatable("dupe.screen.select.done"), button -> this.close())
                 .dimensions(this.width / 2 - 50, this.height - 30, 100, 20)
                 .build());
 
@@ -70,8 +71,8 @@ public class ItemSelectScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        context.fill(0, 0, this.width, this.height, 0xFF121212);
 
+        this.renderBackground(context, mouseX, mouseY, delta);
         super.render(context, mouseX, mouseY, delta);
 
         context.getMatrices().push();
@@ -104,10 +105,11 @@ public class ItemSelectScreen extends Screen {
                 context.fill(x, y, x + ITEM_SIZE, y + ITEM_SIZE, 0x80FFFFFF);
             }
 
-            context.drawItem(new ItemStack(item), x + 1, y + 1);
+            ItemStack stack = new ItemStack(item);
+            context.drawItem(stack, x + 1, y + 1);
 
             if (mouseX >= x && mouseX < x + ITEM_SIZE && mouseY >= y && mouseY < y + ITEM_SIZE) {
-                tooltipStack = new ItemStack(item);
+                tooltipStack = stack;
             }
 
             x += ITEM_SIZE;
@@ -120,7 +122,8 @@ public class ItemSelectScreen extends Screen {
         context.getMatrices().pop();
 
         context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 8, 0xFFFFFF);
-        context.drawCenteredTextWithShadow(this.textRenderer, Text.of("Selected: " + dupeItems.size()), this.width / 2,
+        context.drawCenteredTextWithShadow(this.textRenderer,
+                Text.translatable("dupe.screen.select.count", dupeItems.size()), this.width / 2,
                 45, 0xAAAAAA);
 
         if (tooltipStack != null) {
