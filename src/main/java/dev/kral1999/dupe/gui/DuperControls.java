@@ -18,7 +18,6 @@ import java.util.List;
 
 public class DuperControls {
 
-    @SuppressWarnings("unused")
     private final Screen screen;
     private final List<net.minecraft.client.gui.widget.ClickableWidget> children = new ArrayList<>();
     private final List<net.minecraft.client.gui.Drawable> drawables = new ArrayList<>();
@@ -40,10 +39,12 @@ public class DuperControls {
         int width = 100;
         int height = 20;
 
-        addDrawableChild(CyclingButtonWidget.builder(value -> Text.of((Boolean) value ? "Enabled" : "Disabled"))
+        addDrawableChild(CyclingButtonWidget
+                .builder(value -> Text
+                        .translatable((Boolean) value ? "dupe.controls.enabled" : "dupe.controls.disabled"))
                 .values(true, false)
                 .initially(Config.INSTANCE.enabled)
-                .build(x, y, width, height, Text.of("Status"), (button, value) -> {
+                .build(x, y, width, height, Text.translatable("dupe.controls.status"), (button, value) -> {
                     Config.INSTANCE.enabled = (Boolean) value;
                     Config.save();
                 }));
@@ -52,7 +53,7 @@ public class DuperControls {
         addDrawableChild(new CyclingButtonWidget.Builder<Config.Mode>(value -> Text.of(((Config.Mode) value).name()))
                 .values(Config.Mode.Normal, Config.Mode.Speed)
                 .initially(Config.INSTANCE.mode)
-                .build(x, y, width, height, Text.of("Mode"), (button, value) -> {
+                .build(x, y, width, height, Text.translatable("dupe.controls.mode"), (button, value) -> {
                     Config.INSTANCE.mode = (Config.Mode) value;
                     updateReplaceFramesVisibility();
                     Config.save();
@@ -63,10 +64,11 @@ public class DuperControls {
         y += 24;
 
         replaceFramesButton = CyclingButtonWidget
-                .<Boolean>builder(value -> Text.of(value ? "Replace: ON" : "Replace: OFF"))
+                .<Boolean>builder(
+                        value -> Text.translatable(value ? "dupe.controls.enabled" : "dupe.controls.disabled"))
                 .values(true, false)
                 .initially(Config.INSTANCE.replaceItemFrames)
-                .build(x, y, width, height, Text.of("Replace"), (button, value) -> {
+                .build(x, y, width, height, Text.translatable("dupe.controls.replace"), (button, value) -> {
                     Config.INSTANCE.replaceItemFrames = value;
                     Config.save();
                 });
@@ -75,11 +77,11 @@ public class DuperControls {
         y += 24;
 
         addDrawableChild(new SliderWidget(x, y, width, height,
-                Text.literal("Range: " + String.format("%.1f", Config.INSTANCE.range)),
+                Text.translatable("dupe.controls.range", String.format("%.1f", Config.INSTANCE.range)),
                 (Config.INSTANCE.range - 2.0) / 3.0) {
             @Override
             protected void updateMessage() {
-                this.setMessage(Text.literal("Range: " + String.format("%.1f", Config.INSTANCE.range)));
+                this.setMessage(Text.translatable("dupe.controls.range", String.format("%.1f", Config.INSTANCE.range)));
             }
 
             @Override
@@ -100,7 +102,7 @@ public class DuperControls {
         addDrawableChild(keybindButton);
         y += 24;
 
-        addDrawableChild(ButtonWidget.builder(Text.of("Select Items..."), button -> {
+        addDrawableChild(ButtonWidget.builder(Text.translatable("dupe.controls.select_items"), button -> {
             MinecraftClient.getInstance().setScreen(new ItemSelectScreen(this.screen));
         }).dimensions(x, y, width, height).build());
     }
@@ -118,16 +120,16 @@ public class DuperControls {
 
     private Text getKeybindText() {
         if (listeningForKey) {
-            return Text.of("> Press Key <");
+            return Text.translatable("dupe.controls.key.listening");
         }
         if (Config.INSTANCE.dupeKey == GLFW.GLFW_KEY_UNKNOWN || Config.INSTANCE.dupeKey == -1) {
-            return Text.of("Dupe Key: NONE");
+            return Text.translatable("dupe.controls.key.none");
         }
         try {
             String keyName = InputUtil.fromKeyCode(Config.INSTANCE.dupeKey, 0).getLocalizedText().getString();
-            return Text.of("Dupe Key: " + keyName);
+            return Text.translatable("dupe.controls.key.prefix", keyName);
         } catch (Exception e) {
-            return Text.of("Dupe Key: ???");
+            return Text.translatable("dupe.controls.key.prefix", "???");
         }
     }
 
@@ -171,5 +173,25 @@ public class DuperControls {
 
     public List<net.minecraft.client.gui.widget.ClickableWidget> getChildren() {
         return children;
+    }
+
+    public void setVisible(boolean visible) {
+        for (net.minecraft.client.gui.widget.ClickableWidget widget : children) {
+            widget.visible = visible;
+        }
+        if (replaceFramesButton != null && visible) {
+            updateReplaceFramesVisibility();
+        }
+    }
+
+    public void updatePositions(int inventoryX, int inventoryY) {
+        int x = inventoryX - 105;
+        int y = inventoryY + 5;
+
+        for (net.minecraft.client.gui.widget.ClickableWidget widget : children) {
+            widget.setX(x);
+            widget.setY(y);
+            y += 24;
+        }
     }
 }

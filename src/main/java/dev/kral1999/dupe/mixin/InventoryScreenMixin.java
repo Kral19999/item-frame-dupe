@@ -1,11 +1,12 @@
 package dev.kral1999.dupe.mixin;
 
 import dev.kral1999.dupe.gui.DuperControls;
-import net.minecraft.client.gui.DrawContext;
+
 import net.minecraft.client.gui.screen.ingame.AbstractInventoryScreen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.screen.PlayerScreenHandler;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -31,9 +32,13 @@ public abstract class InventoryScreenMixin extends AbstractInventoryScreen<Playe
         duperControls.getChildren().forEach(this::addDrawableChild);
     }
 
-    @Inject(method = "render", at = @At("TAIL"))
-    private void onRender(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+    @Inject(method = "render", at = @At("HEAD"))
+    private void onRender(DrawContext context, int mouseX, int mouseY, float delta,
+            CallbackInfo ci) {
         if (duperControls != null) {
+            boolean recipeBookOpen = ((InventoryScreen) (Object) this).getRecipeBookWidget().isOpen();
+            duperControls.setVisible(!recipeBookOpen);
+            duperControls.updatePositions(this.x, this.y);
         }
     }
 
