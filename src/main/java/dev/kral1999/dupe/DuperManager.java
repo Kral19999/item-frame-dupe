@@ -7,30 +7,43 @@ import net.minecraft.entity.decoration.ItemFrameEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemFrameItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-@SuppressWarnings("unused")
 public class DuperManager {
     private static final MinecraftClient mc = MinecraftClient.getInstance();
     private static final List<FrameSnapshot> targetFrames = new ArrayList<>();
     private static final List<ItemFrameEntity> dontHit = new ArrayList<>();
 
-    private record FrameSnapshot(Vec3d pos, BlockPos supportPos, net.minecraft.util.math.Direction facing) {
+    private static final long DPS_UPDATE_INTERVAL_MS = 1000;
+    private static final long CLEANUP_INTERVAL_MS = 5000;
+    private static final long COOLDOWN_EXPIRY_MS = 10000;
+
+    private static final Map<Integer, Long> interactionCooldowns = new ConcurrentHashMap<>();
+
+    private static int currentDps = 0;
+    private static long lastDpsUpdate = 0;
+    private static int accumulatedDupes = 0;
+
+    public static int getDps() {
+        return currentDps;
     }
 
-    private static int dupeCount = 0;
+    private record FrameSnapshot(Vec3d pos, BlockPos supportPos, net.minecraft.util.math.Direction facing) {
+    }
 
     private static int placements = 0;
     private static int swaps = 0;
     private static int moves = 0;
+    private static long lastCleanup = 0;
 
     public static void onDupeKeyPressed() {
         Config.INSTANCE.enabled = !Config.INSTANCE.enabled;
@@ -39,11 +52,14 @@ public class DuperManager {
             reloadFrames();
         } else {
             targetFrames.clear();
+            dontHit.clear();
+            interactionCooldowns.clear();
         }
     }
 
     public static void reloadFrames() {
         targetFrames.clear();
+        dontHit.clear();
         if (mc.player == null || mc.world == null)
             return;
 
@@ -52,6 +68,8 @@ public class DuperManager {
 
         for (Entity entity : mc.world.getEntities()) {
             if (entity instanceof ItemFrameEntity itemFrame) {
+                if (itemFrame.isRemoved() || !itemFrame.isAlive())
+                    continue;
                 if (entity.squaredDistanceTo(mc.player) <= rangeSq) {
                     detected.add(itemFrame);
                 }
@@ -66,14 +84,36 @@ public class DuperManager {
         }
 
         for (ItemFrameEntity frame : detected) {
-            BlockPos supportPos = Utils.Vec3d2BlockPos(frame.getPos().subtract(frame.getRotationVector().normalize()));
+            Vec3d rotationVec = frame.getRotationVector();
+            if (rotationVec == null)
+                continue;
+            BlockPos supportPos = Utils.Vec3d2BlockPos(frame.getPos().subtract(rotationVec.normalize()));
             targetFrames.add(new FrameSnapshot(frame.getPos(), supportPos, frame.getHorizontalFacing()));
         }
     }
 
     public static void tick() {
+        long now = System.currentTimeMillis();
+        if (now - lastDpsUpdate >= DPS_UPDATE_INTERVAL_MS) {
+            currentDps = accumulatedDupes / 2;
+            accumulatedDupes = 0;
+            lastDpsUpdate = now;
+        }
+
         if (!Config.INSTANCE.enabled || mc.player == null || mc.world == null || mc.interactionManager == null)
             return;
+
+        if (!Config.INSTANCE.multitask) {
+            if (mc.player.isUsingItem() || mc.options.attackKey.isPressed() || mc.options.useKey.isPressed()
+                    || mc.currentScreen != null) {
+                return;
+            }
+        }
+
+        if (now - lastCleanup >= CLEANUP_INTERVAL_MS) {
+            cleanupDeadEntities();
+            lastCleanup = now;
+        }
 
         placements = 0;
         swaps = 0;
@@ -92,18 +132,18 @@ public class DuperManager {
         }
 
         if (Config.INSTANCE.mode == Config.Mode.Normal) {
-            handleNormalMode(allDetectedFrames, dupeItemList);
+            handleNormalMode(allDetectedFrames, dupeItemList, rangeSq);
         } else if (Config.INSTANCE.mode == Config.Mode.Speed) {
-            handleSpeedMode(allDetectedFrames, dupeItemList);
+            handleSpeedMode(allDetectedFrames, dupeItemList, rangeSq);
         }
     }
 
-    private static void handleNormalMode(List<ItemFrameEntity> allDetectedFrames, List<Item> dupeItemList) {
+    private static void handleNormalMode(List<ItemFrameEntity> allDetectedFrames, List<Item> dupeItemList,
+            double rangeSq) {
         PlayerInventory inv = mc.player.getInventory();
         int maxPlacements = Config.INSTANCE.maxPlacements;
         int maxSwaps = Config.INSTANCE.maxSwaps;
         int maxInventoryMoves = Config.INSTANCE.maxInventoryMoves;
-        double rangeSq = Config.INSTANCE.range * Config.INSTANCE.range;
 
         List<ItemFrameEntity> activeFrames = new ArrayList<>(allDetectedFrames);
         activeFrames.sort((f1, f2) -> Float.compare(f1.distanceTo(mc.player), f2.distanceTo(mc.player)));
@@ -117,10 +157,12 @@ public class DuperManager {
         List<ItemFrameEntity> filledItemFrames = new ArrayList<>();
 
         for (ItemFrameEntity frame : activeFrames) {
+            if (frame.isRemoved() || !frame.isAlive())
+                continue;
             if (frame.squaredDistanceTo(mc.player.getEyePos()) > rangeSq)
                 continue;
 
-            if (frame.getHeldItemStack().getItem() == Items.AIR) {
+            if (frame.getHeldItemStack().isEmpty()) {
                 emptyItemFrames.add(frame);
             } else if (dupeItemList.contains(frame.getHeldItemStack().getItem())) {
                 filledItemFrames.add(frame);
@@ -155,18 +197,26 @@ public class DuperManager {
 
         for (ItemFrameEntity filledFrame : filledItemFrames) {
             if (!dontHit.contains(filledFrame)) {
+                if (Config.INSTANCE.checkStatus && filledFrame.getHeldItemStack().isEmpty())
+                    continue;
+
+                long currentTime = System.currentTimeMillis();
+                if (Config.INSTANCE.antiDoubleClick && currentTime
+                        - interactionCooldowns.getOrDefault(filledFrame.getId(), 0L) < Config.INSTANCE.doubleClickDelay)
+                    continue;
+
                 mc.interactionManager.attackEntity(mc.player, filledFrame);
-                dupeCount++;
+                accumulatedDupes++;
                 dontHit.add(filledFrame);
+                interactionCooldowns.put(filledFrame.getId(), currentTime);
             }
         }
     }
 
-    private static void handleSpeedMode(List<ItemFrameEntity> allDetectedFrames, List<Item> dupeItemList) {
+    private static void handleSpeedMode(List<ItemFrameEntity> allDetectedFrames, List<Item> dupeItemList,
+            double rangeSq) {
         List<ItemFrameEntity> presentTargets = new ArrayList<>();
         List<FrameSnapshot> missingTargets = new ArrayList<>();
-
-        double rangeSq = Config.INSTANCE.range * Config.INSTANCE.range;
 
         for (FrameSnapshot target : targetFrames) {
             if (target.pos.squaredDistanceTo(mc.player.getEyePos()) > rangeSq) {
@@ -175,8 +225,15 @@ public class DuperManager {
 
             ItemFrameEntity found = null;
             for (ItemFrameEntity detected : allDetectedFrames) {
+                if (detected.isRemoved() || !detected.isAlive())
+                    continue;
+                Vec3d rotationVec = detected.getRotationVector();
+                if (rotationVec == null)
+                    continue;
+                BlockPos detectedSupportPos = Utils
+                        .Vec3d2BlockPos(detected.getPos().subtract(rotationVec.normalize()));
                 if (detected.getHorizontalFacing() == target.facing &&
-                        detected.getPos().squaredDistanceTo(target.pos) < 0.01) {
+                        detectedSupportPos.equals(target.supportPos)) {
                     found = detected;
                     break;
                 }
@@ -200,15 +257,19 @@ public class DuperManager {
             if (placements >= maxPlacements)
                 break;
 
-            boolean isAir = frame.getHeldItemStack().getItem() == Items.AIR;
+            boolean isAir = frame.getHeldItemStack().isEmpty();
             boolean isDupeItem = dupeItemList.contains(frame.getHeldItemStack().getItem());
 
             if (isAir) {
                 checkAndFillFrame(frame, inv, dupeItemList, maxSwaps);
             } else if (!dontHit.contains(frame) && isDupeItem) {
+
+                long now = System.currentTimeMillis();
+
                 dontHit.add(frame);
                 mc.interactionManager.attackEntity(mc.player, frame);
-                dupeCount++;
+                accumulatedDupes++;
+                interactionCooldowns.put(frame.getId(), now);
 
                 checkAndFillFrame(frame, inv, dupeItemList, maxSwaps);
             }
@@ -268,7 +329,14 @@ public class DuperManager {
     }
 
     private static void interactItemFrame(ItemFrameEntity itemFrame) {
+        long now = System.currentTimeMillis();
+        if (Config.INSTANCE.antiDoubleClick && Config.INSTANCE.mode != Config.Mode.Speed
+                && now - interactionCooldowns.getOrDefault(itemFrame.getId(), 0L) < Config.INSTANCE.doubleClickDelay)
+            return;
+
         mc.interactionManager.interactEntity(mc.player, itemFrame, Hand.MAIN_HAND);
+        accumulatedDupes++;
+        interactionCooldowns.put(itemFrame.getId(), now);
     }
 
     private static void attemptSwapToItem(PlayerInventory inv, List<Item> items) {
@@ -288,7 +356,10 @@ public class DuperManager {
     }
 
     private static int findItemInHotbar(PlayerInventory inv, List<Item> items) {
+        int currentSlot = inv.selectedSlot;
         for (int i = 0; i < 9; i++) {
+            if (i == currentSlot)
+                continue;
             if (items.contains(inv.getStack(i).getItem()))
                 return i;
         }
@@ -296,7 +367,10 @@ public class DuperManager {
     }
 
     private static int findItemInHotbar(PlayerInventory inv, Class<?> clazz) {
+        int currentSlot = inv.selectedSlot;
         for (int i = 0; i < 9; i++) {
+            if (i == currentSlot)
+                continue;
             if (clazz.isInstance(inv.getStack(i).getItem()))
                 return i;
         }
@@ -313,5 +387,19 @@ public class DuperManager {
 
     private static void swap(PlayerInventory inv, int slot) {
         inv.selectedSlot = slot;
+    }
+
+    private static void cleanupDeadEntities() {
+
+        Iterator<ItemFrameEntity> iterator = dontHit.iterator();
+        while (iterator.hasNext()) {
+            ItemFrameEntity frame = iterator.next();
+            if (frame.isRemoved() || !frame.isAlive()) {
+                iterator.remove();
+            }
+        }
+
+        long now = System.currentTimeMillis();
+        interactionCooldowns.entrySet().removeIf(entry -> now - entry.getValue() > COOLDOWN_EXPIRY_MS);
     }
 }

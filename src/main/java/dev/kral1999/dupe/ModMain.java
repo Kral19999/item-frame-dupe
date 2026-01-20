@@ -10,7 +10,7 @@ import dev.kral1999.dupe.utils.UpdateChecker;
 
 public class ModMain implements ClientModInitializer {
 
-    private boolean wasKeyPresed = false;
+    private boolean wasKeyPressed = false;
     private boolean shownUpdateScreen = false;
 
     @Override
@@ -21,12 +21,12 @@ public class ModMain implements ClientModInitializer {
             if (Config.INSTANCE.dupeKey != GLFW.GLFW_KEY_UNKNOWN) {
                 boolean isPressed = GLFW.glfwGetKey(client.getWindow().getHandle(),
                         Config.INSTANCE.dupeKey) == GLFW.GLFW_PRESS;
-                if (isPressed && !wasKeyPresed) {
+                if (isPressed && !wasKeyPressed) {
                     if (client.player != null) {
                         DuperManager.onDupeKeyPressed();
                     }
                 }
-                wasKeyPresed = isPressed;
+                wasKeyPressed = isPressed;
             }
 
             DuperManager.tick();
@@ -45,6 +45,9 @@ public class ModMain implements ClientModInitializer {
         });
 
         DupeCommands.register();
+
+        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT
+                .register(new dev.kral1999.dupe.gui.DupeHud());
 
         UpdateChecker.checkForUpdates();
     }

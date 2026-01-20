@@ -24,34 +24,40 @@ public class UpdateChecker {
 
     public static void checkForUpdates() {
         CompletableFuture.runAsync(() -> {
+            HttpURLConnection connection = null;
             try {
                 URL url = URI
                         .create("https://api.github.com/repos/Kral19999/item-frame-dupe/releases")
                         .toURL();
-                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(5000);
                 connection.setReadTimeout(5000);
 
                 if (connection.getResponseCode() == 200) {
-                    InputStreamReader reader = new InputStreamReader(connection.getInputStream());
-                    var jsonArray = JsonParser.parseReader(reader).getAsJsonArray();
+                    try (InputStreamReader reader = new InputStreamReader(connection.getInputStream())) {
+                        var jsonArray = JsonParser.parseReader(reader).getAsJsonArray();
 
-                    if (jsonArray.size() > 0) {
-                        JsonObject json = jsonArray.get(0).getAsJsonObject();
-                        String tagName = json.get("tag_name").getAsString();
+                        if (jsonArray.size() > 0) {
+                            JsonObject json = jsonArray.get(0).getAsJsonObject();
+                            String tagName = json.get("tag_name").getAsString();
 
-                        String cleanTag = tagName.startsWith("v") ? tagName.substring(1) : tagName;
+                            String cleanTag = tagName.startsWith("v") ? tagName.substring(1) : tagName;
 
-                        if (isNewerVersion(CURRENT_VERSION, cleanTag)) {
-                            latestVersion = tagName;
-                            isUpdateAvailable = true;
-                            LOGGER.info("Update available: " + tagName);
+                            if (isNewerVersion(CURRENT_VERSION, cleanTag)) {
+                                latestVersion = tagName;
+                                isUpdateAvailable = true;
+                                LOGGER.info("Update available: " + tagName);
+                            }
                         }
                     }
                 }
             } catch (Exception e) {
                 LOGGER.error("Failed to check for updates: " + e.getMessage());
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
             }
         });
     }
@@ -62,8 +68,17 @@ public class UpdateChecker {
         int length = Math.max(currentParts.length, latestParts.length);
 
         for (int i = 0; i < length; i++) {
-            int v1 = i < currentParts.length ? Integer.parseInt(currentParts[i]) : 0;
-            int v2 = i < latestParts.length ? Integer.parseInt(latestParts[i]) : 0;
+            int v1 = 0;
+            int v2 = 0;
+            try {
+                v1 = i < currentParts.length ? Integer.parseInt(currentParts[i]) : 0;
+            } catch (NumberFormatException ignored) {
+            }
+            try {
+                v2 = i < latestParts.length ? Integer.parseInt(latestParts[i]) : 0;
+            } catch (NumberFormatException ignored) {
+            }
+
             if (v2 > v1)
                 return true;
             if (v2 < v1)

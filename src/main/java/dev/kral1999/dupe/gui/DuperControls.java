@@ -7,11 +7,8 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.CyclingButtonWidget;
-import net.minecraft.client.gui.widget.SliderWidget;
-import net.minecraft.client.util.InputUtil;
 
 import net.minecraft.text.Text;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,10 +18,6 @@ public class DuperControls {
     private final Screen screen;
     private final List<net.minecraft.client.gui.widget.ClickableWidget> children = new ArrayList<>();
     private final List<net.minecraft.client.gui.Drawable> drawables = new ArrayList<>();
-
-    private ButtonWidget keybindButton;
-    private CyclingButtonWidget<Boolean> replaceFramesButton;
-    private boolean listeningForKey = false;
 
     public DuperControls(Screen screen) {
         this.screen = screen;
@@ -47,6 +40,7 @@ public class DuperControls {
                 .build(x, y, width, height, Text.translatable("dupe.controls.status"), (button, value) -> {
                     Config.INSTANCE.enabled = (Boolean) value;
                     Config.save();
+                    DuperManager.reloadFrames();
                 }));
         y += 24;
 
@@ -55,7 +49,6 @@ public class DuperControls {
                 .initially(Config.INSTANCE.mode)
                 .build(x, y, width, height, Text.translatable("dupe.controls.mode"), (button, value) -> {
                     Config.INSTANCE.mode = (Config.Mode) value;
-                    updateReplaceFramesVisibility();
                     Config.save();
                     if (Config.INSTANCE.enabled) {
                         DuperManager.reloadFrames();
@@ -63,74 +56,14 @@ public class DuperControls {
                 }));
         y += 24;
 
-        replaceFramesButton = CyclingButtonWidget
-                .<Boolean>builder(
-                        value -> Text.translatable(value ? "dupe.controls.enabled" : "dupe.controls.disabled"))
-                .values(true, false)
-                .initially(Config.INSTANCE.replaceItemFrames)
-                .build(x, y, width, height, Text.translatable("dupe.controls.replace"), (button, value) -> {
-                    Config.INSTANCE.replaceItemFrames = value;
-                    Config.save();
-                });
-        addDrawableChild(replaceFramesButton);
-        updateReplaceFramesVisibility();
-        y += 24;
-
-        addDrawableChild(new SliderWidget(x, y, width, height,
-                Text.translatable("dupe.controls.range", String.format("%.1f", Config.INSTANCE.range)),
-                (Config.INSTANCE.range - 2.0) / 3.0) {
-            @Override
-            protected void updateMessage() {
-                this.setMessage(Text.translatable("dupe.controls.range", String.format("%.1f", Config.INSTANCE.range)));
-            }
-
-            @Override
-            protected void applyValue() {
-                Config.INSTANCE.range = 2.0 + (this.value * 3.0);
-                Config.save();
-                if (Config.INSTANCE.enabled) {
-                    DuperManager.reloadFrames();
-                }
-            }
-        });
-        y += 24;
-
-        keybindButton = ButtonWidget.builder(getKeybindText(), button -> {
-            listeningForKey = !listeningForKey;
-            button.setMessage(getKeybindText());
-        }).dimensions(x, y, width, height).build();
-        addDrawableChild(keybindButton);
-        y += 24;
-
-        addDrawableChild(ButtonWidget.builder(Text.translatable("dupe.controls.select_items"), button -> {
-            MinecraftClient.getInstance().setScreen(new ItemSelectScreen(this.screen));
+        addDrawableChild(ButtonWidget.builder(Text.translatable("dupe.screen.settings.title"), button -> {
+            MinecraftClient.getInstance().setScreen(new SettingsScreen(this.screen));
         }).dimensions(x, y, width, height).build());
     }
 
     private void addDrawableChild(net.minecraft.client.gui.widget.ClickableWidget widget) {
         children.add(widget);
         drawables.add(widget);
-    }
-
-    private void updateReplaceFramesVisibility() {
-        if (replaceFramesButton != null) {
-            replaceFramesButton.visible = Config.INSTANCE.mode == Config.Mode.Speed;
-        }
-    }
-
-    private Text getKeybindText() {
-        if (listeningForKey) {
-            return Text.translatable("dupe.controls.key.listening");
-        }
-        if (Config.INSTANCE.dupeKey == GLFW.GLFW_KEY_UNKNOWN || Config.INSTANCE.dupeKey == -1) {
-            return Text.translatable("dupe.controls.key.none");
-        }
-        try {
-            String keyName = InputUtil.fromKeyCode(Config.INSTANCE.dupeKey, 0).getLocalizedText().getString();
-            return Text.translatable("dupe.controls.key.prefix", keyName);
-        } catch (Exception e) {
-            return Text.translatable("dupe.controls.key.prefix", "???");
-        }
     }
 
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
@@ -146,28 +79,10 @@ public class DuperControls {
                 return true;
             }
         }
-        if (listeningForKey) {
-            listeningForKey = false;
-            keybindButton.setMessage(getKeybindText());
-            return true;
-        }
         return false;
     }
 
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (listeningForKey) {
-            if (keyCode == GLFW.GLFW_KEY_ESCAPE || keyCode == GLFW.GLFW_KEY_DELETE) {
-                Config.INSTANCE.dupeKey = GLFW.GLFW_KEY_UNKNOWN;
-                Config.save();
-                listeningForKey = false;
-            } else {
-                Config.INSTANCE.dupeKey = keyCode;
-                Config.save();
-                listeningForKey = false;
-            }
-            keybindButton.setMessage(getKeybindText());
-            return true;
-        }
         return false;
     }
 
@@ -178,9 +93,6 @@ public class DuperControls {
     public void setVisible(boolean visible) {
         for (net.minecraft.client.gui.widget.ClickableWidget widget : children) {
             widget.visible = visible;
-        }
-        if (replaceFramesButton != null && visible) {
-            updateReplaceFramesVisibility();
         }
     }
 

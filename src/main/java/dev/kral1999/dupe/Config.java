@@ -39,6 +39,11 @@ public class Config {
         public int maxInventoryMoves = 1;
         public String ignoreVersion = "";
 
+        public boolean checkStatus = true;
+        public boolean antiDoubleClick = true;
+        public int doubleClickDelay = 25;
+        public boolean multitask = true;
+
         public List<String> dupeItems = new ArrayList<>(Arrays.asList(
                 "minecraft:shulker_box", "minecraft:white_shulker_box", "minecraft:orange_shulker_box",
                 "minecraft:magenta_shulker_box", "minecraft:light_blue_shulker_box", "minecraft:yellow_shulker_box",
@@ -71,6 +76,7 @@ public class Config {
         if (cachedDupeItems == null) {
             cachedDupeItems = INSTANCE.dupeItems.stream()
                     .map(id -> Registries.ITEM.get(Identifier.of(id)))
+                    .filter(item -> item != net.minecraft.item.Items.AIR)
                     .collect(Collectors.toList());
         }
         return cachedDupeItems;
