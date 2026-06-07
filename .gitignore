@@ -1,0 +1,35 @@
+
+# Grade
+.gradle/
+build/
+out/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
+
+# Fabric
+run/
+run*/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+
+# Local custom Gradle Homes
+gradle_home/
+.gradle_home/
+
+# Local compilations
+bin/
+
