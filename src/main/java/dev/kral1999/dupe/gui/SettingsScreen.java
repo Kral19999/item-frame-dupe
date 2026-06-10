@@ -52,26 +52,33 @@ public class SettingsScreen extends Screen {
         });
         y += 24;
 
-        boolean isNormalMode = Config.INSTANCE.mode == Config.Mode.Normal;
-        int currentMaxFrames = isNormalMode ? 3 : Math.min(9, Config.INSTANCE.maxFrames);
+        int currentMaxFrames = switch (Config.INSTANCE.mode) {
+            case Normal -> 3;
+            case Speed -> 1;
+            case Multi -> Math.min(9, Config.INSTANCE.maxFrames);
+        };
         SliderWidget maxFramesSlider = new SliderWidget(leftX, y, doubleWidth, 20,
                 Text.translatable("dupe.debug.max_frames", currentMaxFrames),
                 (currentMaxFrames - 1) / 8.0) {
             @Override
             protected void updateMessage() {
-                int displayVal = Config.INSTANCE.mode == Config.Mode.Normal ? 3 : Math.min(9, Config.INSTANCE.maxFrames);
+                int displayVal = switch (Config.INSTANCE.mode) {
+                    case Normal -> 3;
+                    case Speed -> 1;
+                    case Multi -> Math.min(9, Config.INSTANCE.maxFrames);
+                };
                 this.setMessage(Text.translatable("dupe.debug.max_frames", displayVal));
             }
 
             @Override
             protected void applyValue() {
-                if (Config.INSTANCE.mode != Config.Mode.Normal) {
+                if (Config.INSTANCE.mode == Config.Mode.Multi) {
                     Config.INSTANCE.maxFrames = 1 + (int) Math.round(this.value * 8);
                     Config.save();
                 }
             }
         };
-        maxFramesSlider.active = !isNormalMode;
+        maxFramesSlider.active = Config.INSTANCE.mode == Config.Mode.Multi;
         addDrawableChild(maxFramesSlider);
         y += 24;
 
