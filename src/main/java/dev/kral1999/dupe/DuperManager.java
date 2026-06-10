@@ -88,7 +88,11 @@ public class DuperManager {
 
         detected.sort((f1, f2) -> Float.compare(f1.distanceTo(mc.player), f2.distanceTo(mc.player)));
 
-        int limit = Config.INSTANCE.mode == Config.Mode.Normal ? 3 : Config.INSTANCE.maxFrames;
+        int limit = switch (Config.INSTANCE.mode) {
+             case Normal -> 3;
+             case Speed -> 1;
+             case Multi -> Config.INSTANCE.maxFrames;
+        };
         if (detected.size() > limit) {
             detected = detected.subList(0, limit);
         }
